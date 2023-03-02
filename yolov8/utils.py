@@ -69,8 +69,8 @@ def xywh2xyxy(x):
     return y
 
 
-def create_unique_label(results, label):
-    n_similar_objects = len(list(v for k, v in results.items() if label in k.lower()))
+def create_unique_label(label_scores, label):
+    n_similar_objects = len(list(v for k, v in label_scores.items() if label in k.lower()))
     return label + '_' + str(n_similar_objects)
 
 
@@ -82,7 +82,7 @@ def draw_detections(image, boxes, scores, class_ids, mask_alpha=0.3):
     size = min([img_height, img_width]) * 0.0006
     text_thickness = int(min([img_height, img_width]) * 0.001)
 
-    results = {}
+    label_scores = {}
 
     # Draw bounding boxes and labels of detections
     for box, score, class_id in zip(boxes, scores, class_ids):
@@ -97,9 +97,9 @@ def draw_detections(image, boxes, scores, class_ids, mask_alpha=0.3):
         cv2.rectangle(mask_img, (x1, y1), (x2, y2), color, -1)
 
         # Create unique label
-        label = create_unique_label(results=results, label=class_names[class_id])
+        label = create_unique_label(label_scores=label_scores, label=class_names[class_id])
         # Add label + score
-        results[label] = float(score)
+        label_scores[label] = float(score)
 
         caption = f'{label} {int(score * 100)}%'
         (tw, th), _ = cv2.getTextSize(text=caption, fontFace=cv2.FONT_HERSHEY_SIMPLEX,
@@ -116,7 +116,7 @@ def draw_detections(image, boxes, scores, class_ids, mask_alpha=0.3):
         cv2.putText(mask_img, caption, (x1, y1),
                     cv2.FONT_HERSHEY_SIMPLEX, size, (255, 255, 255), text_thickness, cv2.LINE_AA)
 
-    return cv2.addWeighted(mask_img, mask_alpha, det_img, 1 - mask_alpha, 0), results
+    return cv2.addWeighted(mask_img, mask_alpha, det_img, 1 - mask_alpha, 0), label_scores
 
 
 def draw_comparison(img1, img2, name1, name2, fontsize=2.6, text_thickness=3):

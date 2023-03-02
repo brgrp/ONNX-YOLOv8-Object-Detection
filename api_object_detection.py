@@ -10,6 +10,23 @@ import cv2
 import io
 import os
 from yolov8 import YOLOv8, utils
+from pydantic import BaseModel
+from pydantic import parse_obj_as
+from typing import List
+
+
+class Object(BaseModel):
+    uid: str
+    score: int
+    x1: int
+    y1: int
+    x2: int
+    y2: int
+
+
+class Objects(BaseModel):
+    objects: List[Object]
+
 
 # Initialize yolov8 object detector
 model_path = os.getenv('MODEL_PATH', default="models/yolov8x.onnx")
@@ -81,14 +98,23 @@ def annotate_only(file: UploadFile = File(...)):
     # Load image
     img = load_image_from_file(file)
     # Detect Objects
-    _, scores, class_ids = yolov8_detector(img)
-    results = {}
+    boxes, scores, class_ids = yolov8_detector(img)
 
-    for score, class_id in zip(scores, class_ids):
+    label_scores = {}
+    objects = Objects(objects=[])
+
+    for box, score, class_id in zip(boxes, scores, class_ids):
         # Create unique label
-        label = utils.create_unique_label(results=results, label=utils.class_names[class_id])
-        # Add label + score
-        results[label] = float(score)
+        label = utils.class_names[class_id]
+        unique_label = utils.create_unique_label(label_scores=label_scores, label=label)
+        label_scores[label] = float(score)
 
-    print("Result: {}".format(results))
-    return JSONResponse(content=results, status_code=200)
+        uid = unique_label.split('_')[-1]
+
+        # Add label + score
+        x1, y1, x2, y2 = box.astype(int)
+
+        objects.objects.append(Object(uid=unique_label, score=int(score * 100), x1=x1, y1=y1, x2=x2, y2=y2))
+
+    print("Objects: {}".format(objects))
+    return JSONResponse(content=objects.dict(), status_code=200)
